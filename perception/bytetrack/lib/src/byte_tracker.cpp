@@ -99,9 +99,9 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
   // Add newly detected tracklets to tracked_stracks
   for (size_t i = 0; i < this->tracked_stracks.size(); i++) {
     if (!this->tracked_stracks[i].is_activated)
-      unconfirmed.push_back(&this->tracked_stracks[i]);
+      unconfirmed.push_back(&this->tracked_stracks[i]);       //lxp:未激活的轨迹
     else
-      tracked_stracks.push_back(&this->tracked_stracks[i]);
+      tracked_stracks.push_back(&this->tracked_stracks[i]);   //lxp:已经激活的轨迹
   }
 
   ////////////////// Step 2: First association, with IoU //////////////////
@@ -110,12 +110,16 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
 
   std::vector<std::vector<float> > dists;
   int dist_size = 0, dist_size_size = 0;
+  //lxp: 这里是匹配的高分边界框
   dists = iou_distance(strack_pool, detections, dist_size, dist_size_size);
 
   std::vector<std::vector<int> > matches;
   std::vector<int> u_track, u_detection;
+  //lxp: matches:已匹配的轨迹与边界框; u_track:未成功匹配的轨迹；u_detection:未成功匹配的当前帧边界框
+  //lxp:“未成功匹配的轨迹”就是指已有的轨迹未匹配上任何一个检测到的边界框； “未成功匹配的当前帧边界框”就是指当前检测到的边界框没有匹配上任何一条轨迹
   linear_assignment(dists, dist_size, dist_size_size, match_thresh, matches, u_track, u_detection);
 
+  //lxp: 把初步追踪轨迹中的框改为当前帧边界框，id还是原来的id
   for (size_t i = 0; i < matches.size(); i++) {
     STrack * track = strack_pool[matches[i][0]];
     STrack * det = &detections[matches[i][1]];
@@ -132,9 +136,11 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
   for (size_t i = 0; i < u_detection.size(); i++) {
     detections_cp.push_back(detections[u_detection[i]]);
   }
+  //lxp: 这里挑选出当前帧的低分边界框
   detections.clear();
   detections.assign(detections_low.begin(), detections_low.end());
 
+  //lxp: 找出第一次匹配中没匹配到的轨迹，筛选出其中的已追踪轨迹
   for (size_t i = 0; i < u_track.size(); i++) {
     if (strack_pool[u_track[i]]->state == TrackState::Tracked) {
       r_tracked_stracks.push_back(strack_pool[u_track[i]]);
@@ -149,6 +155,7 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
   u_detection.clear();
   linear_assignment(dists, dist_size, dist_size_size, 0.5, matches, u_track, u_detection);
 
+  //lxp: 使用已成功匹配的当前帧边界框更新上述追踪轨迹
   for (size_t i = 0; i < matches.size(); i++) {
     STrack * track = r_tracked_stracks[matches[i][0]];
     STrack * det = &detections[matches[i][1]];
@@ -161,6 +168,7 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
     }
   }
 
+  //lxp: 将此时还未成功追踪的轨迹标记为失追轨迹（扔给下一帧去追踪了）
   for (size_t i = 0; i < u_track.size(); i++) {
     STrack * track = r_tracked_stracks[u_track[i]];
     if (track->state != TrackState::Lost) {
@@ -170,9 +178,11 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
   }
 
   // Deal with unconfirmed tracks, usually tracks with only one beginning frame
+  //lxp: detections_cp:Step 2 中未成功匹配的当前帧边界框（没有成功匹配的高分边界框）
   detections.clear();
   detections.assign(detections_cp.begin(), detections_cp.end());
 
+  //lxp: unconfirmed:之前确认的未激活轨迹 
   dists.clear();
   dists = iou_distance(unconfirmed, detections, dist_size, dist_size_size);
 
@@ -181,11 +191,13 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
   u_detection.clear();
   linear_assignment(dists, dist_size, dist_size_size, 0.7, matches, u_unconfirmed, u_detection);
 
+  //lxp: 使用已成功匹配的当前帧边界框更新上述追踪轨迹
   for (size_t i = 0; i < matches.size(); i++) {
     unconfirmed[matches[i][0]]->update(detections[matches[i][1]], this->frame_id);
     activated_stracks.push_back(*unconfirmed[matches[i][0]]);
   }
 
+  //lxp: 此时将未成功追踪的未激活轨迹直接标记为已删除轨迹
   for (size_t i = 0; i < u_unconfirmed.size(); i++) {
     STrack * track = unconfirmed[u_unconfirmed[i]];
     track->mark_removed();
@@ -193,6 +205,8 @@ std::vector<STrack> ByteTracker::update(const std::vector<ByteTrackObject> & obj
   }
 
   ////////////////// Step 4: Init new stracks //////////////////
+  //lxp: 如果到现在还没有成功匹配的高分边界框，就能认为是新出现的东西了，会给它分配一个新的轨迹以及新的id
+  //lxp: 新增的轨迹都是未激活状态，如果下一帧不能成功匹配的话就会被无情删除了
   for (size_t i = 0; i < u_detection.size(); i++) {
     STrack * track = &detections[u_detection[i]];
     if (track->score < this->high_thresh) continue;
