@@ -55,6 +55,7 @@ private:
 
   rclcpp::TimerBase::SharedPtr timer_;
 
+  //lxp: class bytetrack_node 包含class ByteTrack
   std::unique_ptr<bytetrack::ByteTrack> bytetrack_;
 };
 
