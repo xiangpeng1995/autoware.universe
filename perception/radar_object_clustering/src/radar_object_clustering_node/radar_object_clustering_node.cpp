@@ -101,6 +101,7 @@ void RadarObjectClusteringNode::onObjects(const DetectedObjects::ConstSharedPtr 
   auto func = [](DetectedObject const & lhs, DetectedObject const & rhs) {
     return get_distance(lhs) < get_distance(rhs);
   };
+  //lxp: 首先将object根据距离从近到远排序
   std::sort(objects.begin(), objects.end(), func);
 
   for (size_t i = 0; i < objects.size(); i++) {
@@ -124,6 +125,7 @@ void RadarObjectClusteringNode::onObjects(const DetectedObjects::ConstSharedPtr 
     if (clustered_objects.size() == 1) {
       clustered_output_object = clustered_objects.at(0);
     } else {
+      //lxp: 以存在概率大小作为主要排序标准
       auto func_max_confidence = [](const DetectedObject & a, const DetectedObject & b) {
         return a.existence_probability < b.existence_probability;
       };
