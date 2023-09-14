@@ -161,6 +161,7 @@ void RadarObjectClusteringNode::onObjects(const DetectedObjects::ConstSharedPtr 
     }
 
     // Fixed label correction
+    //lxp:这里判断是否采用固定的label/size
     if (node_param_.is_fixed_label) {
       clustered_output_object.classification.at(0).label =
         object_recognition_utils::toLabel(node_param_.fixed_label);

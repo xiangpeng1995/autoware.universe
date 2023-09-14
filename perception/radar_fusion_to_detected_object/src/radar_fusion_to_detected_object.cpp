@@ -108,6 +108,7 @@ RadarFusionToDetectedObject::Output RadarFusionToDetectedObject::update(
         TwistWithCovariance twist_with_covariance =
           estimateTwist(split_object, radars_within_split_object);
 
+        //lxp:判断物体的偏航方向和扭曲的偏航方向是否一致，此功能可提高多目标跟踪的观测速度
         if (isYawCorrect(split_object, twist_with_covariance, param_.threshold_yaw_diff)) {
           split_object.kinematics.twist_with_covariance = twist_with_covariance;
           split_object.kinematics.has_twist = true;
@@ -211,6 +212,7 @@ TwistWithCovariance RadarFusionToDetectedObject::estimateTwist(
   // calculate twist for radar data with min distance
   Eigen::Vector2d vec_min_distance(0.0, 0.0);
   if (param_.velocity_weight_min_distance > 0.0) {
+    //lxp:将object范围内的radar点按从近到远进行排列
     auto comp_func = [&](const RadarInput & a, const RadarInput & b) {
       return tier4_autoware_utils::calcSquaredDistance2d(
                a.pose_with_covariance.pose.position,
@@ -225,6 +227,7 @@ TwistWithCovariance RadarFusionToDetectedObject::estimateTwist(
   }
 
   // calculate twist for radar data with median twist
+  //lxp:中间值
   Eigen::Vector2d vec_median(0.0, 0.0);
   if (param_.velocity_weight_median > 0.0) {
     auto ascending_func = [&](const RadarInput & a, const RadarInput & b) {
@@ -245,6 +248,7 @@ TwistWithCovariance RadarFusionToDetectedObject::estimateTwist(
   }
 
   // calculate twist for radar data with average twist
+  //lxp:平均值
   Eigen::Vector2d vec_average(0.0, 0.0);
   if (param_.velocity_weight_average > 0.0) {
     for (const auto & radar : (*radars)) {
